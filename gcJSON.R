@@ -1,3 +1,6 @@
+HRV_DIR <-"D:\\Data\\R_projects\\HRV\\" 
+devtools::load_all(pkg = paste(HRV_DIR, "hrvtools", sep = ""))
+
 library(jsonlite)
 
 prettyJSON <- function(df)
@@ -84,7 +87,7 @@ get_starttime_from_filename <- function (hrv_file)
 
 
 # redefined below in Application
-GC_HRV_DIR = "D:\\R\\Dropbox\\Stefan\\Sport\\Trainingslog\\HRV\\GC_JSON"
+GC_HRV_DIR = "D:\\R\\Dropbox\\Stefan\\Sport\\Trainingslog\\HRV\\GC_JSON\\"
 HRV_DATA_DIR <- "D:\\R\\Dropbox\\Stefan\\Sport\\Trainingslog\\HRV\\neu\\"
 
 #LAST CHANGE, marked with #CHANGED#
@@ -151,7 +154,7 @@ rr_to_hr <- function(rr, window_size=3)
 
 set_hr_from_rr <- function(rr, time, window_size=3)
 {
-print("CHANGED to cumsum, if problems occur, switch back
+print("CHANGED to cumsum, if problems occur, switch back")
     cum_rr = cumsum(rr)
 #    cum_rr = vector(length=length(rr))
 #    for (i in 1:length(rr))
@@ -172,7 +175,7 @@ print("CHANGED to cumsum, if problems occur, switch back
 
 
 # Application
-GC_HRV_DIR = "D:\\R\\Dropbox\\Stefan\\Sport\\Trainingslog\\HRV\\GC_JSON"
+GC_HRV_DIR <- "D:\\R\\Dropbox\\Stefan\\Sport\\Trainingslog\\HRV\\GC_JSON"
 HRV_DATA_DIR <- "D:\\R\\Dropbox\\Stefan\\Sport\\Trainingslog\\HRV\\neu\\"
 hrv_files <- get_hrv_files(HRV_DATA_DIR)
 #hrv_files
@@ -183,7 +186,7 @@ convert_csv_to_json(hrv_files, GC_HRV_DIR)
 
 #------------------------------------------------------------------------------------#
 # TODO: use these functions to set hr in gc data
-
+# enables R Plot with immediate comparison of my calculated hr and breast strap sent hr
 
 
 

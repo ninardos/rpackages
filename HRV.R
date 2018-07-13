@@ -1,5 +1,6 @@
-devtools::load_all(pkg = "D:\\tmp\\experiments_R\\HRV\\hrvtools")
-#library(hrvtools)
+
+HRV_DIR <-"D:\\Data\\R_projects\\HRV\\" 
+devtools::load_all(pkg = paste(HRV_DIR, "hrvtools", sep = ""))
 
 #####################################################################################
 #####################################################################################
@@ -7,26 +8,78 @@ devtools::load_all(pkg = "D:\\tmp\\experiments_R\\HRV\\hrvtools")
 #####################################################################################
 #####################################################################################
 # Display results
-mr <- analyse_mr("D:\\tmp\\experiments_R\\HRV\\data_hrv_morning_readiness\\")
+mr <- analyse_mr(paste(HRV_DIR, "dataEliteHRV\\data_hrv_morning_readiness\\", sep = ""))
 # show data with suspicious amount of doubles
 # mr <- data_mr[c("file", "doubles", "errors")][as.numeric(data_mr$doubles)>5,]
 
 
-mr_1min_dir <- "D:\\tmp\\experiments_R\\HRV\\data_hrv_mr_and_1min\\"
+mr_1min_dir <- paste(HRV_DIR, "dataEliteHRV\\data_hrv_mr_and_1min\\", sep = "")
 data_mr_1min <- process_hrv_data(mr_1min_dir)
 compare_mr_1min(data_mr_1min)
 compare_mr_1min_all(data_mr_1min)
 
 
-mr_dir <- "D:\\tmp\\experiments_R\\HRV\\data_hrv_morning_readiness\\"
-#mr_dir <- "D:\\tmp\\experiments_R\\HRV\\tmp\\"
-mr_sum <- summary_mr_trend(mr_dir, days=28)
+mr_dir <- paste(HRV_DIR, "dataEliteHRV\\data_hrv_morning_readiness\\", sep = "")
+mr_sum <- summary_mr_trend(mr_dir, days=28, smooth=7)
+#mr_sum <- summary_mr_trend(mr_dir, days=28)
 
-test1_dir <- "D:\\tmp\\experiments_R\\HRV\\data_hrv_test\\testset1\\"
+test1_dir <- paste(HRV_DIR, "hrvtools\\data\\testset1\\", sep = "")
 test1_sum <- summary_mr_trend(test1_dir, days=10)
 
-test2_dir <- "D:\\tmp\\experiments_R\\HRV\\data_hrv_test\\testset2\\"
+test2_dir <- paste(HRV_DIR, "hrvtools\\data\\testset2\\", sep = "")
 test2_sum <- summary_mr_trend(test2_dir, days=10)
+
+####################################################################
+# vgl hrv_mr und hrv_mr_1min
+
+compare_hrv_hr_mr_1min <- function(data_dir) 
+{
+mr_1min_dir <- data_dir
+data_mr_1min <- analyse_mr(mr_1min_dir)
+N <- length(data_mr_1min$RMSSD)
+ind_mr <- seq(from = 1, to = N, by = 2)
+ind_1min <- seq(from = 2, to = N, by = 2)
+
+d_mr   <- data_mr_1min$RMSSD[ind_mr]
+d_1min <- data_mr_1min$RMSSD[ind_1min]
+d_hr_mr <- data_mr_1min$HR_mean[ind_mr]
+d_hr_1min <- data_mr_1min$HR_mean[ind_1min]
+
+par(mfrow=c(4,1))
+plot(d_mr, type="l", col="red")
+lines(d_1min, col="blue")
+title(paste("HRV(RMSSD)"), sub="Red: MR, Blue: 1min")
+SMOOTH=7
+plot(moving_avg(d_mr, n=SMOOTH), type="l", col="red")
+lines(moving_avg(d_1min, n=SMOOTH), col="blue")
+title(paste("Moving Average of HRV(RMSSD), n= ", SMOOTH), sub="Red: MR, Blue: 1min")
+
+plot(d_hr_mr, type="l", col="red")
+lines(d_hr_1min, col="blue")
+title(paste("HR"), sub="Red: MR, Blue: 1min")
+SMOOTH=7
+plot(moving_avg(d_hr_mr, n=SMOOTH), type="l", col="red")
+lines(moving_avg(d_hr_1min, n=SMOOTH), col="blue")
+title(paste("Moving Average of HR, n= ", SMOOTH), sub="Red: MR, Blue: 1min")
+}
+d_dir <- paste(HRV_DIR, "dataEliteHRV\\data_hrv_mr_and_1min\\", sep = "")
+compare_hrv_hr_mr_1min(d_dir)
+
+####################################################################
+
+
+
+#####################################################################################
+# candidates for hrv_tools package
+
+show_last_reading <- function(mr){
+    par(mfrow=c(1,1))
+    lastIndex <- length(mr$RR_data_raw)
+    plot(unlist(mr$RR_data_raw[lastIndex]), pch=20, col="red")
+    lines(unlist(mr$RR_data_preprocessed[lastIndex]), col="blue")
+    title("lines: preprocessed, circles: raw")
+}
+show_last_reading(mr)
 
 
 

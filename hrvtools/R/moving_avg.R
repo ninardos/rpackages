@@ -13,9 +13,9 @@ moving_avg <- function(v, n = 7)
 {
     if (length(v) < n) return(rep(NA, length(v)))
     f <- rep(1/n, n)
-    mv_avg <- filter(v, f, sides = 1)
-	mv_avg <- as.numeric(mv_avg)
-	return(as.numeric(mv_avg))
+    mv_avg <- stats::filter(v, f, sides = 1)
+    mv_avg <- as.numeric(mv_avg)
+    return(as.numeric(mv_avg))
 }
 
 

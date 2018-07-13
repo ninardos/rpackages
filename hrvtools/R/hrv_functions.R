@@ -4,6 +4,8 @@ SIGNIFICANT_DIGITS <- 4
 SMOOTHING_FACTOR <- 2
 #####################################
 
+HRV_DIR <-"D:\\Data\\R_projects\\HRV\\"
+
 #---------------------------------------------------------------------#
 hrvtools_version <- function() {
    print("0.0.1")
@@ -24,9 +26,18 @@ process_hrv_data <- function(directory, sig_digs=5)
         new_line <- derive_metrics(filename_full, sig_digs=SIGNIFICANT_DIGITS)
         metrics_trend <- rbind(metrics_trend, new_line)
     }
+#XXX CV
+# should be a summary-function hrv_summary(...)
+# report also numerical values for last day, NNs, etc.
+    cv <- vector(length=length(files))
+    for(i in 1:length(files)){
+        cv[i] <- calculate_coefficient_variation(metrics_trend$HRV_Ithlete, i, window=7)
+    }
+    metrics_trend <- cbind(metrics_trend, cv)
+#XXX CV
     return(metrics_trend)
 }
-#data_mr = process_hrv_data("D:\\tmp\\experiments_R\\HRV\\data_hrv_morning_readiness\\")
+#data_mr = process_hrv_data(paste(HRV_DIR, "dataEliteHRV\\data_hrv_morning_readiness\\", sep = ""))
 # plot_trend(data_mr)
 
 #---------------------------------------------------------------------#
@@ -39,15 +50,15 @@ regression_hrv_data <- function(dir, d_reg, sig_digs = 5)
     # return(d == d_reg)
 }
 
-#d_reg <- process_hrv_data("D:\\tmp\\experiments_R\\HRV\\data_hrv_morning_readiness\\")
-#regression_hrv_data("D:\\tmp\\experiments_R\\HRV\\data_hrv_morning_readiness\\", d_reg, 5)
+#d_reg <- process_hrv_data(paste(HRV_DIR, "dataEliteHRV\\data_hrv_morning_readiness\\", sep = ""))
+#regression_hrv_data(paste(HRV_DIR, "dataEliteHRV\\data_hrv_morning_readiness\\", sep = ""), d_reg, 5)
 
 #---------------------------------------------------------------------#
 
 read_hrv_data <- function(files, dir)
 {
 print ("Reading HRV files:")
-print(files)
+#print(files)
     hrv_data <- list()
     index <- 1
     for (hrv_file in files)
@@ -81,11 +92,11 @@ check_data_integrity <- function(hrv_data, rr_double_limit=0.075, rr_lower_limit
     number_high_values = length(hrv_data[hrv_data >= rr_upper_limit])  
     number_doubles = sum(diff(hrv_data) == 0)
 
-    if (number_low_values + number_high_values > 1) return(FALSE)
+    if (number_low_values + number_high_values >= 1) return(FALSE)
     if (number_doubles > rr_double_limit * length(hrv_data)) return (FALSE) # TBD: reasonable value for the number of doubles? Spread over ca. 300 ms, with ca. 150 measurements <=2? <=5.
     return(TRUE)
 }
-#data_mr = process_hrv_data("D:\\tmp\\experiments_R\\HRV\\data_hrv_morning_readiness\\")
+#data_mr = process_hrv_data(paste(HRV_DIR, "dataEliteHRV\\data_hrv_morning_readiness\\"))
 
 #---------------------------------------------------------------------#
 
@@ -117,7 +128,6 @@ derive_metrics <- function(hrv_file, sig_digs)
     file <- tail (filename, 1) 
     dataIntegrity <- check_data_integrity(RR_data_raw[[1]], rr_double_limit=RR_DOUBLE_LIMIT_PCT, 
                                           rr_lower_limit=RR_LOWER_LIMIT, rr_upper_limit=RR_UPPER_LIMIT)
-
     # calculate metrics
     HR_min <- calculate_HR_min(HR, SIGNIFICANT_DIGITS)
     HR_max <- calculate_HR_max(HR, SIGNIFICANT_DIGITS)
@@ -156,9 +166,9 @@ derive_metrics <- function(hrv_file, sig_digs)
 
     return(metrics)
 }
-#data_mr = process_hrv_data("D:\\tmp\\experiments_R\\HRV\\data_hrv_morning_readiness\\")
+#data_mr = process_hrv_data(paste(HRV_DIR, "dataEliteHRV\\data_hrv_morning_readiness\\", sep = ""))
 #data_mr$file
-#regression_hrv_data("D:\\tmp\\experiments_R\\HRV\\data_hrv_morning_readiness\\", d_reg)
+#regression_hrv_data(paste(HRV_DIR, "dataEliteHRV\\data_hrv_morning_readiness\\", sep = ""), d_reg)
 
 #---------------------------------------------------------------------#
 # functions to derive metrics
@@ -205,7 +215,7 @@ calculate_HR_mean <- function (HR, sig_digs=5)
 
 calculate_HR_smoothed <- function (HR, smoothing_factor=2, sig_digs=5)
 {
-    HR_smoothed <- filter(HR, rep(1/smoothing_factor, smoothing_factor), sides=1)
+    HR_smoothed <- stats::filter(HR, rep(1/smoothing_factor, smoothing_factor), sides=1)
     HR_smoothed <- na.omit(HR_smoothed)
     HR_smoothed <- signif_value(HR_smoothed, sig_digs)
     return(HR_smoothed)
@@ -306,6 +316,20 @@ calculate_outlier_over <- function (RR_interval, sig_digs=5, rr_upper_limit=2000
     outlier_over <- sum(RR_interval > rr_upper_limit)
 }
 
+#---------------------------------------------------------------------#
+# Summary statistics
+
+# calculate the coefficient of variation hrv data over a parametrized window size
+calculate_coefficient_variation <- function(HRV_series, ind, window=7, sig_digs=2) {
+    wind <- window
+    if ((ind - wind + 1) < 1) return(0)
+    v <- HRV_series[(ind - wind + 1):ind]
+    coefficient_variation <- sd(v) / mean(v)
+    coefficient_variation <- signif_value(coefficient_variation*100, sig_digs=sig_digs)
+    return (coefficient_variation)
+}
+# calculate_coefficient_variation(daily_hrv_scores, 120, 7, sig_digs=5)
+
 ##########################################################################################
 # one function for returning / rounding to sig_digs
 # maybe vector, v
@@ -323,12 +347,11 @@ round_value <- function(raw_value, sig_digs=SIGNIFICANT_DIGITS)
 }
 
 #---------------------------------------------------------------------#
-
-plot_trend <- function(trend_metrics)
+plot_trend <- function(trend_metrics, smooth=7)
 {
     # TBD: find a better name for res, maybe "data_metrics"
     res <- trend_metrics
-    SMOOTHING_FACTOR <- 2 # TBD: now used in two places: derive_metrics and plot_metrics.
+    SMOOTHING_FACTOR <- 2 #smooth # TBD: now used in two places: derive_metrics and plot_metrics.
 
     axis_labels <- substr(res$file, 6, 10) #cut out the date
 
@@ -337,11 +360,13 @@ plot_trend <- function(trend_metrics)
 
     axis_labels <- axis_labels[valid_for_plot]
 
-    par(mfrow=c(2,1))
-
+    par(mfrow=c(3,1))
 
 # plot HR graph, showing min, mean, max
-    plot_range_HR <- as.integer(range(res$HR_min[valid_for_plot], res$HR_max[valid_for_plot], na.rm=TRUE))
+# TODO: decide on range: fixed, focus on mean? focus on most of min..max (i. e. without outliers)?
+#    plot_range_HR <- as.integer(range(res$HR_min[valid_for_plot], res$HR_max[valid_for_plot], na.rm=TRUE))
+#    plot_range_HR <- c(35,60)
+    plot_range_HR <- as.integer(range(res$HR_min[valid_for_plot], res$HR_mean[valid_for_plot], na.rm=TRUE))
 
     plot_data = res$HR_min[valid_for_plot]
 
@@ -352,13 +377,22 @@ plot_trend <- function(trend_metrics)
     lines(plot_data, col="red")
     plot_data <- res$HR_mean[valid_for_plot]
     lines(plot_data, col="blue")
-    plot_data <- moving_avg(res$HR_mean[valid_for_plot])
+    plot_data <- moving_avg(res$HR_mean[valid_for_plot], n = smooth)
     lines(plot_data, col="black", lwd=2)
+
+    abline(h= 60, col="gray", lty=3, lwd=1)
+    abline(h= 55, col="gray", lty=3, lwd=1)
+    abline(h= 52.5, col="lightgray", lty=3, lwd=1)
+    abline(h= 50, col="black", lty=3, lwd=1)
+    abline(h= 47.5, col="lightgray", lty=3, lwd=1)
+    abline(h= 45, col="gray", lty=3, lwd=1)
+    abline(h= 40, col="black", lty=3, lwd=1)
+
+
 
 # plot HRV values
     HRV_Ithlete <- 20 * as.numeric(res$LnRMSSD)
     plot_range_HRV <- as.integer(range(HRV_Ithlete[valid_for_plot], na.rm=TRUE))
-    
     plot_data <- HRV_Ithlete[valid_for_plot]
     plot(plot_data, type="l", col="green", main="HRV", sub="green: HRV    black: HRV 7day mvg. avg.", 
          xlab="file", ylab="", ylim=plot_range_HRV, xaxt="n")
@@ -366,10 +400,29 @@ plot_trend <- function(trend_metrics)
     plot_with_symbol(plot_data, !valid, 1, "red") 
 
     axis(side=1, at=1:length(axis_labels), labels=axis_labels)
-
-    plot_data <- moving_avg(HRV_Ithlete[valid_for_plot])
-print(valid)
+    plot_data <- moving_avg(HRV_Ithlete[valid_for_plot], n = smooth)
     lines(plot_data, col="black", lwd=2)
+    abline(h= 90, col="black", lty=3, lwd=1)
+    abline(h= 85, col="lightgray", lty=3, lwd=1)
+    abline(h= 80, col="gray", lty=3, lwd=1)
+    abline(h= 75, col="black", lty=3, lwd=1)
+    abline(h= 70, col="gray", lty=3, lwd=1)
+    abline(h= 65, col="lightgray", lty=3, lwd=1)
+    abline(h= 60, col="black", lty=3, lwd=1)
+# plot cv values
+    plot_data <- res$cv[valid_for_plot]
+    plot_range_CV <- as.integer(range(res$cv[valid_for_plot], na.rm=TRUE))
+    plot(plot_data, type="l", col="violet", main="HRV Coefficient of Variation", sub="violet: HRV Coefficient of Variation", 
+         xlab="file", ylab="", ylim=plot_range_CV, xaxt="n")
+    plot_with_symbol(plot_data, !valid, 1, "red") 
+#XXX
+    abline(h= 5, col="black", lty=3, lwd=1)
+    abline(h= 7.5, col="grey", lty=3, lwd=1)
+    abline(h= 10, col="black", lty=3, lwd=1)
+    abline(h= 12.5, col="grey", lty=3, lwd=1)
+    abline(h= 15, col="black", lty=3, lwd=1)
+    axis(side=1, at=1:length(axis_labels), labels=axis_labels)
+
 
 }
 # plot_trend(data_mr)
@@ -399,35 +452,36 @@ analyse_mr <- function(mr_dir)
     mr_data <- read_hrv_data(mr_files, mr_dir)
     data_mr <- process_hrv_data(mr_dir)
     plot_trend(data_mr)
+    print("CV - last 7")
+    print(tail(data_mr$cv,7))
     return(data_mr)
 }
-#analyse_mr("D:\\tmp\\experiments_R\\HRV\\data_hrv_morning_readiness\\")
-#analyse_mr("D:\\tmp\\experiments_R\\HRV\\data_hrv_mr_and_1min\\")
-#analyse_mr("D:\\tmp\\experiments_R\\HRV\\data_hrv\\")
-#analyse_mr("D:\\tmp\\experiments_R\\HRV\\tmp\\")
+#analyse_mr(paste(HRV_DIR, "dataEliteHRV\\data_hrv_morning_readiness\\", sep = ""))
+#analyse_mr(paste(HRV_DIR, "dataEliteHRV\\data_hrv_mr_and_1min\\", sep = ""))
+#analyse_mr(paste(HRV_DIR, "dataEliteHRV\\data_hrv\\", sep = ""))
 
 ####################################################################################
 
-summary_mr_trend <- function(mr_dir, days=28)
+summary_mr_trend <- function(mr_dir, days=28, smooth=7)
 {
     data_mr <- process_hrv_data(mr_dir)
     mr_files <- list.files(path=mr_dir, pattern = "^2")
     l = length(mr_files)
     k = max(1, l-days-1)
     data_last <- data_mr[k:l,]
-    plot_trend(data_last) #TBD: improve, only plot relevant, print out the interesting data
-
+    plot_trend(data_last, smooth) #TBD: improve, only plot relevant, print out the interesting data
+    print("Last weeks cv: ")
+    print(tail(data_mr$cv))
     return(data_last)
 }
-# mr_dir <- "D:\\tmp\\experiments_R\\HRV\\data_hrv_morning_readiness\\"
-# mr_dir <- "D:\\tmp\\experiments_R\\HRV\\tmp\\"
+# mr_dir <- paste(HRV_DIR, "dataEliteHRV\\data_hrv_morning_readiness\\")
 # d<-summary_mr_trend(mr_dir, 16)
 
 
 #####################################################################################
 # data for analysis
 #####################################################################################
-# mr_dir <- "D:\\tmp\\experiments_R\\HRV\\data_hrv_morning_readiness\\"
+# mr_dir <- paste(HRV_DIR, "dataEliteHRV\\data_hrv_morning_readiness\\", sep = "")
 # mr_files <- list.files(path=mr_dir, pattern = "^2")
 # mr_data <- read_hrv_data(mr_files, mr_dir)
 # data_mr <- process_hrv_data(mr_dir)
@@ -477,10 +531,18 @@ compare_mr_1min <- function(d)
     hr_mr <- as.numeric(d$HR_mean[mr_seq][valids])
     hr_diff <- hr_1min - hr_mr
 
-    plot(hrv_diff, col="blue", type="b", pch=20, ylim=range(hrv_diff, na.rm=TRUE), sub="blue: HRV, green: HR", main="HRV-Delta")
+    cv_1min <- as.numeric(d$cv[mr_seq + 1][valids])
+    cv_mr <- as.numeric(d$cv[mr_seq][valids])
+    cv_diff <- cv_1min - cv_mr
+
+    plot(hrv_diff, col="blue", type="l", pch=20, ylim=range(hrv_diff, na.rm=TRUE))
+    title(main="Differences HR, HRV, CV", sub="blue: HRV, green: HR, violet: CV, red CV MR, orange CV 1min")
     axis(side=1, at=1:length(axis_labels), labels=axis_labels)
-    lines(hr_diff, col="green", pch=20)
-    points(hr_diff, col="green", pch=20)    
+    lines(hr_diff, col="green", lwd=2)
+    lines(cv_1min, col="orange")
+    lines(cv_mr, col="red")
+    lines(cv_diff, col="violet", lwd=2)
+ 
     abline(h= 10, col="gray", lty=3, lwd=1)
     abline(h= 5, col="lightgray", lty=3, lwd=1)
     abline(h= 0, col="black", lty=3, lwd=1)
@@ -491,9 +553,10 @@ compare_mr_1min <- function(d)
     print(paste(c("HR range: ", range(c(hr_1min, hr_mr), na.rm=TRUE))))
     print(paste(c("HRV-diff range: ", range(hrv_diff, na.rm=TRUE))))
     print(paste(c("HRV range: ", range(c(hrv_1min, hrv_mr), na.rm=TRUE))))
+    print(paste(c("CV of HRV (last 7): ", tail(d$cv,7))))
 
 }
-#mr_1min_dir <- "D:\\tmp\\experiments_R\\HRV\\data_hrv_mr_and_1min\\"
+#mr_1min_dir <- paste(HRV_DIR, "dataEliteHRV\\data_hrv_mr_and_1min\\", sep = "")
 #data_mr_1min <- process_hrv_data(mr_1min_dir)
 #compare_mr_1min(data_mr_1min)
 
@@ -507,6 +570,9 @@ compare_mr_1min_all <- function(d)
     par(mfrow=c(3,1))
 
     mr_seq <- seq(1, l, by=2)
+
+    axis_labels <- substr(d$file, 6, 10) #cut out the date
+    axis_labels <- axis_labels[mr_seq]
 
     lim <- c( min(as.numeric(d$HR_mean)), max(as.numeric(d$HR_mean)))
     HR_mr <- d$HR_mean[mr_seq]
@@ -534,9 +600,18 @@ compare_mr_1min_all <- function(d)
     hr_mr <- as.numeric(d$HR_mean[mr_seq])
     hr_diff <- hr_1min - hr_mr
 
-    plot(hrv_diff, col="blue", type="b", pch=20, ylim=range(hrv_diff, na.rm=TRUE), sub="Blue: HRV, Green: HR", main="HRV-Delta")
-    lines(hr_diff, col="green", pch=20)
-    points(hr_diff, col="green", pch=20)
+    cv_1min <- as.numeric(d$cv[mr_seq + 1])
+    cv_mr <- as.numeric(d$cv[mr_seq])
+    cv_diff <- cv_1min - cv_mr
+
+    plot(hrv_diff, col="blue", type="l", pch=20, ylim=range(hrv_diff, na.rm=TRUE))
+    title(main="Differences HR, HRV, CV", sub="blue: HRV, green: HR, violet: CV, red CV MR, orange CV 1min")
+    axis(side=1, at=1:length(axis_labels), labels=axis_labels)
+    lines(hr_diff, col="green", lwd=2)
+    lines(cv_1min, col="orange")
+    lines(cv_mr, col="red")
+    lines(cv_diff, col="violet", lwd=2)
+
     abline(h= 10, col="gray", lty=3, lwd=1)
     abline(h= 5, col="lightgray", lty=3, lwd=1)
     abline(h= 0, col="black", lty=3, lwd=1)
@@ -547,9 +622,10 @@ compare_mr_1min_all <- function(d)
     print(paste(c("HR range: ", range(c(hr_1min, hr_mr), na.rm=TRUE))))
     print(paste(c("HRV-diff range: ", range(hrv_diff, na.rm=TRUE))))
     print(paste(c("HRV range: ", range(c(hrv_1min, hrv_mr), na.rm=TRUE))))
+    print(paste(c("CV of HRV (last 7): ", tail(d$cv,7))))
 
 }
-#mr_1min_dir <- "D:\\tmp\\experiments_R\\HRV\\data_hrv_mr_and_1min\\"
+#mr_1min_dir <- paste(HRV_DIR, "dataEliteHRV\\data_hrv_mr_and_1min\\", sep = "")
 #data_mr_1min <- process_hrv_data(mr_1min_dir)
 #compare_mr_1min_all(data_mr_1min)
 
